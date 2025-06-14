@@ -1,6 +1,4 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
+<html lang="ru"><head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Детектив: Тайна особняка Блэквуда</title>
@@ -205,6 +203,38 @@
             background-color: #444;
         }
 
+        .projects-link-container {
+            max-width: 1200px;
+            margin: 0 auto 20px;
+            padding: 0 20px;
+        }
+
+    .projects-link {
+        display: inline-block;
+        padding: 10px 20px;
+        background-color: var(--darker);
+        color: var(--secondary);
+        text-decoration: none;
+        border-radius: 30px;
+        border: 2px solid var(--primary);
+        font-weight: bold;
+        transition: all 0.3s ease;
+        transform: translateY(0);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .projects-link:hover {
+        background-color: var(--primary);
+        color: var(--lighter);
+        transform: translateY(-3px);
+        box-shadow: 0 6px 12px rgba(138, 99, 242, 0.3);
+        border-color: var(--secondary);
+    }
+
+    .projects-link:active {
+        transform: translateY(1px);
+    }
+
         /* Адаптивные стили для мобильных устройств */
         @media (max-width: 768px) {
         .game-container {
@@ -279,15 +309,30 @@
         #location-name {
             font-size: 1.3rem;
         }
+
+        .projects-link {
+        padding: 8px 16px;
+        font-size: 14px;
+        display: block;
+        text-align: center;
+        margin: 0 auto;
+        width: fit-content;
+    }
 }
     </style>
 </head>
 <body>
+    <div class="projects-link-container">
+        <a href="https://kirill-fe.github.io/projects/" class="projects-link" target="_blank">
+            projects
+        </a>
+    </div>
+
     <div class="game-container">
         <div id="story-screen">
-            <h1 id="location-name">Особняк Блэквуда</h1>
-            <div id="story-text"></div>
-            <div id="choices" class="choices-container"></div>
+            <h1 id="location-name">Парадный вход</h1>
+            <div id="story-text">Вы стоите перед массивными дубовыми дверями особняка Блэквуда. Ветер шевелит опавшие листья, а луна освещает фасад, придавая ему зловещий вид. Скрип дверей нарушает тишину, когда вы входите внутрь.</div>
+            <div id="choices" class="choices-container"><button class="choice-btn">Осмотреть прихожую</button><button class="choice-btn">Поговорить с дворецким</button><button class="choice-btn">В ящике вы находите старую газету с заголовком: 'Финансовые проблемы семьи Блэквуд?'</button></div>
             
             <div class="progress-tracker">
                 <h3>Ход расследования:</h3>
@@ -304,7 +349,7 @@
             
             <div class="panel">
                 <h2>Персонажи</h2>
-                <div id="npc-list"></div>
+                <div id="npc-list"><div class="npc-btn"><strong>Дворецкий Генри</strong><br><small>Пожилой мужчина в безупречном костюме. Руки слегка дрожат.</small></div></div>
                 <div id="dialogue-window">
                     <h3 id="dialogue-npc-name"></h3>
                     <div id="dialogue-text"></div>
@@ -634,5 +679,7 @@
             "Ваша задача - найти доказательства и раскрыть правду.\n\n" +
             "Вы стоите у входа в особняк. Вечер. Ветер шевелит деревья, создавая жутковатую атмосферу...";
     </script>
+
+
 </body>
 </html>
