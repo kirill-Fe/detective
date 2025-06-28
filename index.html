@@ -1,4 +1,6 @@
-<html lang="ru"><head>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Детектив: Тайна особняка Блэквуда</title>
@@ -360,20 +362,34 @@
     </div>
 
     <script>
-        // Состояние игры
+        // === Игровое состояние ===
         const gameState = {
             location: "mansion_entrance",
             inventory: [],
             clues: [],
             progress: [],
-            knownNPCs: ["butler"],
+            knownNPCs: ["butler"], // Дворецкий известен с самого начала
             gamePhase: 1,
-            hasSpokenToButler: false,
-            hasFoundLetter: false,
-            hasCheckedLibrary: false
+            flags: {
+                hasSpokenToButler: false,
+                hasFoundNewspaper: false,
+                hasFoundLetter: false,
+                hasCheckedPortrait: false,
+                hasHouseKey: false,
+                hasEnteredLibrary: false,
+                hasQuestionedMaid: false,
+                hasUnlockedStudy: false,
+                hasExaminedWill: false,
+                hasConfrontedButler: false,
+                caseSolved: false
+            },
+            currentSuspects: [
+                { id: "butler", name: "Дворецкий Генри", motive: "Финансовые проблемы", evidence: [] },
+                { id: "maid", name: "Горничная Марта", motive: "Неизвестно", evidence: [] }
+            ]
         };
 
-        // База данных NPC
+        // === База данных NPC ===
         const npcDatabase = {
             butler: {
                 name: "Дворецкий Генри",
@@ -399,7 +415,9 @@
                         text: "Раскрытая книга и... письмо. Но я не читал его содержимого, клянусь!",
                         options: [
                             { text: "Где сейчас это письмо?", next: "letter_location", condition: () => true },
-                            { text: "Кто мог написать это письмо?", next: "letter_suspect", condition: () => true }
+                            { text: "Кто мог написать это письмо?", next: "letter_suspect", condition: () => true },
+                            { text: "Вы знали о финансовых проблемах хозяина?", next: "financial_troubles",
+                                condition: () => gameState.flags.hasFoundNewspaper }
                         ]
                     },
                     letter_location: {
@@ -407,6 +425,47 @@
                         options: [
                             { text: "Спасибо за информацию", next: "end", condition: () => true }
                         ]
+                    },
+                    financial_troubles: {
+                        text: "Я... возможно, были некоторые трудности. Но это не имеет отношения к произошедшему!",
+                        options: [
+                            { text: "Почему вы скрывали эту информацию?", next: "confront", condition: () => true }
+                        ]
+                    },
+                    confront: {
+                        text: "Я не скрывал! Просто... (Генри нервно поправляет галстук) Это личные дела семьи.",
+                        options: [
+                            { text: "Вы получали деньги от хозяина?", next: "final_confront",
+                                condition: () => gameState.flags.hasExaminedWill },
+                            { text: "Я вернусь к вам позже", next: "end", condition: () => true }
+                        ]
+                    },
+                    final_confront: {
+                        text: "Это... это было завещание! Я не убивал его!",
+                        options: [
+                            { text: "Вы лжёте! У вас был мотив и возможность", next: "accuse", condition: () => true },
+                            { text: "Мне нужно проверить другие версии", next: "end", condition: () => true }
+                        ]
+                    },
+                    accuse: {
+                        text: "Вы не можете этого доказать! ...Хотя... (Генри опускает голову) Да, я брал деньги. Но я не убийца!",
+                        options: [
+                            { text: "[Арестовать дворецкого]", next: "solve_case", condition: () => true }
+                        ]
+                    },
+                    solve_case: {
+                        text: "Хорошо... Я признаю. Мы поссорились из-за денег, я толкнул его... Он упал, ударился головой... Я не хотел!",
+                        options: [
+                            { text: "Дело закрыто", next: "game_over", condition: () => true }
+                        ]
+                    },
+                    game_over: {
+                        text: "Дело закрыто. Вы арестовали дворецкого, Генри, за убийство сэра Ричарда Блэквуда. Мотив - финансовые трудности. Вы успешно раскрыли тайну особняка Блэквуда.",
+                        options: [] // Нет вариантов, игра окончена
+                    },
+                    end: {
+                        text: "",
+                        options: [] // Нет вариантов, диалог завершен
                     }
                 }
             },
@@ -418,7 +477,8 @@
                         text: "Ох, это ужасно... Я до сих пор не могу поверить...",
                         options: [
                             { text: "Когда вы в последний раз видели хозяина?", next: "last_seen", condition: () => true },
-                            { text: "Вы заметили что-то подозрительное в последние дни?", next: "suspicious", condition: () => gameState.hasSpokenToButler },
+                            { text: "Вы заметили что-то подозрительное в последние дни?", next: "suspicious",
+                                condition: () => gameState.flags.hasSpokenToButler },
                             { text: "Извините за беспокойство", next: "end", condition: () => true }
                         ]
                     },
@@ -428,129 +488,205 @@
                             { text: "Вы сказали об этом полиции?", next: "police_info", condition: () => true },
                             { text: "Спасибо, это важно", next: "end", condition: () => true }
                         ]
+                    },
+                    end: {
+                        text: "",
+                        options: [] // Нет вариантов, диалог завершен
                     }
                 }
             }
         };
 
-        // Локации
+        // === База данных локаций ===
         const locations = {
             mansion_entrance: {
                 name: "Парадный вход",
                 description: "Вы стоите перед массивными дубовыми дверями особняка Блэквуда. Ветер шевелит опавшие листья, а луна освещает фасад, придавая ему зловещий вид. Скрип дверей нарушает тишину, когда вы входите внутрь.",
                 choices: [
-                    { text: "Осмотреть прихожую", action: "move", target: "hallway" },
-                    { text: "Поговорить с дворецким", action: "talk", npc: "butler", condition: () => true },
-                    { text: "Осмотреть почтовый ящик", action: "search", item: "old_newspaper", location: "entrance", text: "В ящике вы находите старую газету с заголовком: 'Финансовые проблемы семьи Блэквуд?'" }
+                    {
+                        text: "Осмотреть почтовый ящик",
+                        action: "search",
+                        item: "Старая газета",
+                        successText: "В ящике вы находите старую газету с заголовком: 'Финансовые проблемы семьи Блэквуд?'", // Текст при успехе
+                        condition: () => !gameState.flags.hasFoundNewspaper
+                    },
+                    {
+                        text: "Поговорить с дворецким",
+                        action: "talk",
+                        npc: "butler",
+                        condition: () => true
+                    },
+                    {
+                        text: "Осмотреть прихожую",
+                        action: "move",
+                        target: "hallway",
+                        condition: () => gameState.flags.hasSpokenToButler
+                    }
                 ]
             },
             hallway: {
                 name: "Главный холл",
-                description: "Просторный холл с мраморным полом и высокими потолками. На стене висит портрет покойного хозяина дома - сэра Ричарда Блэквуда. Лестница ведет на второй этаж, а несколько дверей расходятся в разные части дома.",
+                description: "Просторный холл с мраморным полом и высокими потолками. На стене висит портрет покойного хозяина дома.",
                 choices: [
-                    { text: "Подняться по лестнице", action: "move", target: "second_floor" },
-                    { text: "Зайти в гостиную", action: "move", target: "living_room" },
-                    { text: "Осмотреть портрет", action: "clue", item: "scratched_portrait", text: "При ближайшем рассмотрении вы замечаете свежую царапину на портрете, будто кто-то провел по нему острым предметом..." },
-                    { text: "Проверить тумбу у лестницы", action: "search", item: "house_key", location: "hallway", text: "В верхнем ящике тумбы вы находите небольшой ключ с биркой 'Кабинет'.", condition: () => gameState.hasSpokenToButler }
+                    {
+                        text: "Осмотреть портрет",
+                        action: "clue",
+                        item: "scratched_portrait",
+                        successText: "Свежая царапина на портрете... Кто-то явно пытался его повредить.",
+                        condition: () => !gameState.flags.hasCheckedPortrait
+                    },
+                    {
+                        text: "Проверить тумбу у лестницы",
+                        action: "search",
+                        item: "house_key",
+                        successText: "В ящике лежит маленький ключ с биркой 'Кабинет'.",
+                        condition: () => gameState.flags.hasSpokenToButler && !gameState.flags.hasHouseKey
+                    },
+                    {
+                        text: "Подняться на второй этаж",
+                        action: "move",
+                        target: "second_floor",
+                        condition: () => true
+                    },
+                    {
+                        text: "Вернуться к входу",
+                        action: "move",
+                        target: "mansion_entrance",
+                        condition: () => true
+                    }
+                ]
+            },
+            second_floor: {
+                name: "Второй этаж",
+                description: "Длинный коридор с несколькими дверями. Одна из них ведет в библиотеку.",
+                choices: [
+                    {
+                        text: "Зайти в библиотеку",
+                        action: "move",
+                        target: "library",
+                        condition: () => true
+                    },
+                    {
+                        text: "Открыть кабинет (нужен ключ)",
+                        action: "useItem",
+                        item: "house_key",
+                        target: "study",
+                        successText: "Вы использовали ключ и вошли в кабинет.",
+                        condition: () => gameState.flags.hasHouseKey && !gameState.flags.hasUnlockedStudy
+                    },
+                    {
+                        text: "Вернуться в холл",
+                        action: "move",
+                        target: "hallway",
+                        condition: () => true
+                    }
                 ]
             },
             library: {
                 name: "Библиотека",
-                description: "Просторная комната, заставленная книжными шкафами от пола до потолка. В центре - массивный дубовый стол и кожаное кресло, на котором было найдено тело. Воздух пропитан запахом старых книг и... чем-то еще, возможно, страхом.",
+                description: "Здесь было найдено тело. На столе лежит раскрытая книга и... письмо?",
                 choices: [
-                    { text: "Осмотреть стол", action: "clue", item: "letter", text: "На столе действительно лежит письмо. Оно не подписано, но в нем говорится о 'долге, который нужно вернуть любой ценой'. Дата - вчерашний день.", condition: () => !gameState.hasFoundLetter },
-                    { text: "Проверить книжные полки", action: "search", item: "account_book", location: "library", text: "Между книгами вы находите бухгалтерскую книгу с пометками о крупных суммах, уходящих на 'проект Г'." },
-                    { text: "Вернуться в холл", action: "move", target: "hallway" }
+                    {
+                        text: "Осмотреть стол",
+                        action: "clue",
+                        item: "letter",
+                        successText: "Письмо содержит угрозы: 'Если долг не будет возвращен, последствия будут ужасны...' Подпись: 'Г.Х.'",
+                        condition: () => !gameState.flags.hasFoundLetter
+                    },
+                    {
+                        text: "Проверить книжные полки",
+                        action: "search",
+                        item: "account_book",
+                        successText: "Бухгалтерская книга показывает крупные выплаты некому 'Г.Х.'",
+                        condition: () => !gameState.inventory.includes("account_book")
+                    },
+                    {
+                        text: "Выйти из библиотеки",
+                        action: "move",
+                        target: "second_floor",
+                        condition: () => true
+                    }
+                ]
+            },
+            study: {
+                name: "Кабинет",
+                description: "Кабинет хозяина. На столе — документы и черновик завещания...",
+                choices: [
+                    {
+                        text: "Осмотреть стол",
+                        action: "clue",
+                        item: "will_draft",
+                        successText: "Черновик завещания: основное состояние должно перейти... дворецкому Генри?! Дата - день перед убийством.",
+                        condition: () => !gameState.clues.includes("will_draft")
+                    },
+                    {
+                        text: "Вернуться в коридор",
+                        action: "move",
+                        target: "second_floor",
+                        condition: () => true
+                    }
                 ]
             }
         };
 
-        // Инициализация игры
-        document.addEventListener('DOMContentLoaded', () => {
-            updateGame();
-            renderNPCs();
-            renderInventory();
-            updateProgressTracker();
-            
-            document.getElementById('hint-button').addEventListener('click', giveHint);
-        });
-
-        // Обновление игрового состояния
-        function updateGame() {
-            const location = locations[gameState.location];
-            document.getElementById('location-name').textContent = location.name;
-            document.getElementById('story-text').textContent = location.description;
-            
-            const choicesContainer = document.getElementById('choices');
-            choicesContainer.innerHTML = '';
-            
-            location.choices.forEach(choice => {
-                if (!choice.condition || choice.condition()) {
-                    const button = document.createElement('button');
-                    button.className = 'choice-btn';
-                    button.textContent = choice.text;
-                    button.addEventListener('click', () => handleChoice(choice));
-                    choicesContainer.appendChild(button);
-                }
+        // === Функции рендеринга ===
+        function renderNPCs() {
+            const npcList = document.getElementById('npc-list');
+            npcList.innerHTML = '';
+            gameState.knownNPCs.forEach(npcId => {
+                const npc = npcDatabase[npcId];
+                const button = document.createElement('div');
+                button.className = 'npc-btn';
+                button.innerHTML = `<strong>${npc.name}</strong><br><small>${npc.description}</small>`;
+                button.addEventListener('click', () => startDialogue(npcId));
+                npcList.appendChild(button);
             });
         }
 
-        // Обработка выбора игрока
-        function handleChoice(choice) {
-            switch(choice.action) {
-                case 'move':
-                    gameState.location = choice.target;
-                    addProgress(`Переместился в ${locations[choice.target].name}`);
-                    break;
-                
-                case 'talk':
-                    if (choice.npc === 'butler') gameState.hasSpokenToButler = true;
-                    startDialogue(choice.npc);
-                    addProgress(`Поговорил с ${npcDatabase[choice.npc].name}`);
-                    return; // Не обновляем игру, чтобы диалог оставался
-                
-                case 'clue':
-                    if (!gameState.clues.includes(choice.item)) {
-                        gameState.clues.push(choice.item);
-                        document.getElementById('story-text').textContent = choice.text;
-                        addProgress(`Нашел улику: ${choice.item}`);
-                        if (choice.item === 'letter') gameState.hasFoundLetter = true;
-                    }
-                    break;
-                
-                case 'search':
-                    if (!gameState.inventory.includes(choice.item)) {
-                        gameState.inventory.push(choice.item);
-                        document.getElementById('story-text').textContent = choice.text;
-                        addProgress(`Нашел предмет: ${choice.item}`);
-                    }
-                    break;
-            }
-            
-            updateGame();
-            renderInventory();
+        function renderInventory() {
+            const inventoryItems = document.getElementById('inventory-items');
+            inventoryItems.innerHTML = '';
+            gameState.inventory.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'item';
+                itemDiv.textContent = item;
+                if (gameState.clues.includes(item)) {
+                    itemDiv.classList.add('clue');
+                }
+                if (item === 'house_key') {
+                    itemDiv.classList.add('key-item');
+                }
+                inventoryItems.appendChild(itemDiv);
+            });
         }
 
-        // Диалоговая система
+        function updateProgressTracker() {
+            const progressItems = document.getElementById('progress-items');
+            progressItems.innerHTML = '';
+            gameState.progress.forEach(item => {
+                const progressItem = document.createElement('div');
+                progressItem.className = 'progress-item';
+                progressItem.textContent = item;
+                progressItems.appendChild(progressItem);
+            });
+        }
+
+        // === Функции диалога ===
         function startDialogue(npcId) {
             const npc = npcDatabase[npcId];
-            const dialogueWindow = document.getElementById('dialogue-window');
-            const npcName = document.getElementById('dialogue-npc-name');
-            
-            npcName.textContent = npc.name;
-            dialogueWindow.style.display = 'block';
-            
-            showDialogue(npc, 'initial');
+            showDialogue(npcId, npc.dialogues.initial);
         }
 
-        function showDialogue(npc, dialogueId) {
-            const dialogue = npc.dialogues[dialogueId];
+        function showDialogue(npcId, dialogue) {
+            const dialogueWindow = document.getElementById('dialogue-window');
             const dialogueText = document.getElementById('dialogue-text');
             const dialogueChoices = document.getElementById('dialogue-choices');
-            
+            const dialogueNpcName = document.getElementById('dialogue-npc-name');
+
+            dialogueNpcName.textContent = npcDatabase[npcId].name;
             dialogueText.textContent = dialogue.text;
             dialogueChoices.innerHTML = '';
-            
+
             dialogue.options.forEach(option => {
                 if (!option.condition || option.condition()) {
                     const button = document.createElement('button');
@@ -558,128 +694,196 @@
                     button.textContent = option.text;
                     button.addEventListener('click', () => {
                         if (option.next === 'end') {
-                            document.getElementById('dialogue-window').style.display = 'none';
-                            updateGame();
-                        } else {
-                            showDialogue(npc, option.next);
+                            dialogueWindow.style.display = 'none';
+                        } else if (option.next === 'game_over') {
+                            showDialogue(npcId, npcDatabase[npcId].dialogues[option.next]);
+                            const choiceButtons = dialogueChoices.querySelectorAll('.choice-btn');
+                                choiceButtons.forEach(btn => {
+                                    btn.disabled = true;
+                                    btn.style.opacity = "0.6";
+                                });
+                        }
+                        else {
+                            showDialogue(npcId, npcDatabase[npcId].dialogues[option.next]);
                         }
                     });
                     dialogueChoices.appendChild(button);
                 }
             });
+
+            dialogueWindow.style.display = 'block';
         }
 
-        // Инвентарь
-        function renderInventory() {
-            const inventoryContainer = document.getElementById('inventory-items');
-            inventoryContainer.innerHTML = '';
-            
-            gameState.inventory.forEach(item => {
-                const itemElement = document.createElement('div');
-                itemElement.className = 'item';
-                itemElement.textContent = getItemDescription(item);
-                itemElement.addEventListener('click', () => useItem(item));
-                inventoryContainer.appendChild(itemElement);
-            });
-            
-            gameState.clues.forEach(clue => {
-                const clueElement = document.createElement('div');
-                clueElement.className = 'item clue';
-                clueElement.textContent = getClueDescription(clue);
-                inventoryContainer.appendChild(clueElement);
-            });
-        }
+        // === Функции игрового процесса ===
+        function updateGame() {
+            const location = locations[gameState.location];
+            document.getElementById('location-name').textContent = location.name;
 
-        function getItemDescription(item) {
-            const descriptions = {
-                'old_newspaper': 'Старая газета (Финансовые проблемы Блэквудов)',
-                'house_key': 'Ключ от кабинета',
-                'account_book': 'Бухгалтерская книга'
-            };
-            return descriptions[item] || item;
-        }
-
-        function getClueDescription(clue) {
-            const descriptions = {
-                'scratched_portrait': 'Царапина на портрете',
-                'letter': 'Анонимное письмо с угрозами'
-            };
-            return descriptions[clue] || clue;
-        }
-
-        function useItem(item) {
-            if (item === 'house_key' && gameState.location === 'second_floor') {
-                addProgress('Использовал ключ от кабинета');
-                gameState.inventory = gameState.inventory.filter(i => i !== item);
-                locations.second_floor.choices.push(
-                    { text: "Зайти в кабинет", action: "move", target: "study" }
-                );
-                renderInventory();
-                updateGame();
-                document.getElementById('story-text').textContent = "Вы использовали ключ, чтобы открыть кабинет.";
-            } else {
-                document.getElementById('story-text').textContent = `Вы осматриваете ${getItemDescription(item)}, но пока не понимаете, как это можно использовать.`;
+            // Добавляем начальное описание только при первом входе
+            let storyText = location.description;
+            if (!gameState.progress.length) {
+                storyText = "Вы - частный детектив, вызванный расследовать загадочную смерть сэра Ричарда Блэквуда в его собственном особняке.\n\n" + storyText;
             }
-        }
 
-        // Список NPC
-        function renderNPCs() {
-            const npcList = document.getElementById('npc-list');
-            npcList.innerHTML = '';
-            
-            gameState.knownNPCs.forEach(npcId => {
-                const npc = npcDatabase[npcId];
-                const npcButton = document.createElement('div');
-                npcButton.className = 'npc-btn';
-                npcButton.innerHTML = `<strong>${npc.name}</strong><br><small>${npc.description}</small>`;
-                npcButton.addEventListener('click', () => startDialogue(npcId));
-                npcList.appendChild(npcButton);
+            document.getElementById('story-text').textContent = storyText;
+
+            const choicesContainer = document.getElementById('choices');
+            choicesContainer.innerHTML = '';
+
+            location.choices.forEach(choice => {
+                if (!choice.condition || choice.condition()) {
+                    const button = document.createElement('button');
+                    button.className = 'choice-btn';
+                    button.textContent = choice.text;
+                    button.addEventListener('click', () => handleChoice(choice));
+                    choicesContainer.appendChild(button);
+                } else {
+                    // Показываем серую неактивную кнопку с подсказкой
+                    const disabledButton = document.createElement('button');
+                    disabledButton.className = 'choice-btn';
+                    disabledButton.textContent = choice.text;
+                    disabledButton.disabled = true;
+                    disabledButton.style.opacity = "0.6";
+                    disabledButton.title = "Сначала нужно выполнить другие действия";
+                    choicesContainer.appendChild(disabledButton);
+                }
             });
         }
 
-        // Трекер прогресса
-        function updateProgressTracker() {
-            const progressContainer = document.getElementById('progress-items');
-            progressContainer.innerHTML = '';
-            
-            gameState.progress.forEach(item => {
-                const progressItem = document.createElement('div');
-                progressItem.className = 'progress-item';
-                progressItem.textContent = item;
-                progressContainer.appendChild(progressItem);
-            });
+        function handleChoice(choice) {
+            let text = document.getElementById('story-text').textContent + "\n\n";
+            switch (choice.action) {
+                case 'move':
+                    gameState.location = choice.target;
+                    addProgress(`Переместился в ${locations[choice.target].name}`);
+                    if (choice.target === "library") gameState.flags.hasEnteredLibrary = true;
+                    break;
+
+                case 'talk':
+                    if (choice.npc === 'butler') gameState.flags.hasSpokenToButler = true;
+                    startDialogue(choice.npc);
+                    addProgress(`Поговорил с ${npcDatabase[choice.npc].name}`);
+                    return; // Важно: диалог запускается отдельно
+
+                case 'clue':
+                    if (!gameState.clues.includes(choice.item)) {
+                        gameState.clues.push(choice.item);
+                        text += choice.successText;
+                        document.getElementById('story-text').textContent = text;
+
+                        // Обновляем флаги
+                        if (choice.item === 'letter') {
+                            gameState.flags.hasFoundLetter = true;
+                            gameState.currentSuspects[0].evidence.push("Угрожающее письмо от Г.Х.");
+                        }
+                        if (choice.item === 'scratched_portrait') {
+                            gameState.flags.hasCheckedPortrait = true;
+                            gameState.currentSuspects[0].evidence.push("Следы борьбы у портрета");
+                        }
+                        if (choice.item === 'will_draft') {
+                            gameState.flags.hasExaminedWill = true;
+                            gameState.currentSuspects[0].evidence.push("Завещание в пользу дворецкого");
+                        }
+
+                        addProgress(`Нашел улику: ${choice.item}`);
+                    }
+                    break;
+
+                case 'search':
+                    if (!gameState.inventory.includes(choice.item)) {
+                        gameState.inventory.push(choice.item);
+                        text += choice.successText;
+                        document.getElementById('story-text').textContent = text;
+
+                        if (choice.item === 'old_newspaper') {
+                            gameState.flags.hasFoundNewspaper = true;
+                            gameState.currentSuspects[0].evidence.push("Финансовые проблемы");
+                        }
+                        if (choice.item === 'house_key') {
+                            gameState.flags.hasHouseKey = true;
+                        }
+                        if (choice.item === 'account_book') {
+                            gameState.currentSuspects[0].evidence.push("Бухгалтерские записи о выплатах Г.Х.");
+                        }
+
+                        addProgress(`Нашел предмет: ${choice.item}`);
+                    }
+                    break;
+
+                case 'useItem':
+                    if (gameState.inventory.includes(choice.item)) {
+                        gameState.location = choice.target;
+                        text += choice.successText;
+                        document.getElementById('story-text').textContent = text;
+
+                        if (choice.target === 'study') gameState.flags.hasUnlockedStudy = true;
+                        addProgress(`Использовал ${choice.item} для доступа в ${locations[choice.target].name}`);
+                    }
+                    break;
+            }
+
+            updateGame();
+            renderInventory();
+            checkCaseSolution();
         }
 
-        function addProgress(item) {
-            gameState.progress.push(item);
+        // Функция добавления записи в журнал прогресса
+        function addProgress(text) {
+            gameState.progress.push(text);
             updateProgressTracker();
         }
 
-        // Система подсказок
+        // Проверка решения дела
+        function checkCaseSolution() {
+            if (gameState.flags.hasConfrontedButler &&
+                gameState.clues.includes("letter") &&
+                gameState.clues.includes("will_draft") &&
+                !gameState.flags.caseSolved) {
+
+                gameState.flags.caseSolved = true;
+                document.getElementById('story-text').textContent +=
+                    "\n\nВы собрали все доказательства против дворецкого Генри. " +
+                    "Теперь можно предъявить обвинение!";
+            }
+        }
+
+        // Улучшенные подсказки
         function giveHint() {
             let hint = "";
-            
-            if (!gameState.hasSpokenToButler) {
-                hint = "Попробуйте поговорить с дворецким - он может дать важную информацию.";
-            } else if (!gameState.hasFoundLetter && gameState.location !== 'library') {
-                hint = "Вам нужно найти библиотеку - там может быть важная улика.";
-            } else if (!gameState.inventory.includes('house_key')) {
-                hint = "Осмотрите тумбу в холле - там может быть что-то полезное.";
+
+            if (!gameState.flags.hasSpokenToButler) {
+                hint = "Дворецкий - ваш первый контакт. Поговорите с ним, чтобы узнать об обстоятельствах смерти.";
+            } else if (!gameState.flags.hasFoundNewspaper) {
+                hint = "Осмотрите почтовый ящик у входа. Там может быть что-то интересное.";
+            } else if (!gameState.flags.hasEnteredLibrary) {
+                hint = "Библиотека - место преступления. Необходимо ее осмотреть.";
+            } else if (!gameState.flags.hasFoundLetter) {
+                hint = "В библиотеке осмотрите стол. Возможно, вы найдете там письмо с важной информацией.";
+            } else if (!gameState.flags.hasHouseKey) {
+                hint = "В холле есть тумба у лестницы. Проверьте ее на наличие полезных предметов.";
+            } else if (!gameState.flags.hasUnlockedStudy) {
+                hint = "Вы нашли ключ. Попробуйте использовать его на двери кабинета на втором этаже.";
+            } else if (!gameState.flags.hasExaminedWill) {
+                hint = "В кабинете осмотрите стол. Там может быть черновик завещания.";
+            } else if (!gameState.flags.hasConfrontedButler) {
+                hint = "У вас достаточно улик против дворецкого. Возможно, стоит поговорить с ним еще раз и предъявить ему свои обвинения.";
+            } else if (gameState.flags.caseSolved) {
+                hint = "Вы собрали все необходимые улики и обвинили дворецкого. Дело закрыто.";
             } else {
-                hint = "Попробуйте использовать предметы из инвентаря в подходящих местах.";
+                hint = "Кажется, вы все сделали! Может быть, пропустили что-то очевидное?";
             }
-            
+
             document.getElementById('story-text').textContent += `\n\n[Подсказка: ${hint}]`;
         }
 
-        // Начальное описание
-        document.getElementById('story-text').textContent = 
-            "Вы - частный детектив, вызванный расследовать загадочную смерть сэра Ричарда Блэквуда в его собственном особняке. " +
-            "Местная полиция считает это самоубийством, но вдова уверена - это убийство. " +
-            "Ваша задача - найти доказательства и раскрыть правду.\n\n" +
-            "Вы стоите у входа в особняк. Вечер. Ветер шевелит деревья, создавая жутковатую атмосферу...";
+        // === Инициализация ===
+        document.addEventListener('DOMContentLoaded', () => {
+            updateGame();
+            renderNPCs();
+            renderInventory();
+            updateProgressTracker();
+            document.getElementById('hint-button').addEventListener('click', giveHint);
+        });
     </script>
-
-
 </body>
 </html>
